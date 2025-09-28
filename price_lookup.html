@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>استعلام قیمت - عمده فروشی اسباب بازی</title>
+    <style>
+        /* طراحی ساده صفحه برای نمایش در گوشی موبایل */
+        body { font-family: Tahoma, sans-serif; text-align: center; margin: 0; padding: 20px; background-color: #f8f9fa; }
+        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { color: #0056b3; margin-bottom: 5px; }
+        .mode { color: #6c757d; font-size: 1.1em; margin-bottom: 20px; }
+        .product-name { font-size: 1.8em; font-weight: bold; color: #343a40; margin: 15px 0; }
+        .price { font-size: 3em; font-weight: 900; color: #28a745; margin: 10px 0; }
+        .footer { margin-top: 30px; font-size: 0.8em; color: #aaa; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>استعلام قیمت</h1>
+        <div id="status">در حال دریافت اطلاعات...</div>
+        <div class="mode" id="mode-display"></div>
+        <div class="product-name" id="product-name"></div>
+        <div class="price" id="price-display"></div>
+        <div class="footer">قیمت‌ها به‌صورت لحظه‌ای از سرور به‌روزرسانی می‌شوند.</div>
+    </div>
+
+    <script>
+        // ***************************************************************
+        // ** ۱. مهم: لینک مستقیم فایل TXT خود را اینجا قرار دهید! **
+        const REMOTE_PRICE_URL = "https://example.com/your-raw-link/prices.txt"; 
+        // ***************************************************************
+
+        // ۲. پیدا کردن SKU و Mode از آدرس اینترنتی (لینک QR Code)
+        const params = new URLSearchParams(window.location.search);
+        const scannedSku = params.get('sku');
+        let customerMode = params.get('mode') || 'single'; // اگر mode مشخص نشد، تکی (single) در نظر می‌گیریم
+
+        // تابع اصلی برای دریافت و نمایش قیمت
+        async function displayPrice() {
+            if (!scannedSku) {
+                document.getElementById('status').innerText = 'خطا: کد کالا (SKU) در لینک یافت نشد.';
+                return;
+            }
+
+            try {
+                // الف. دریافت فایل قیمت از اینترنت
+                const response = await fetch(REMOTE_PRICE_URL);
+                if (!response.ok) {
+                    throw new Error('فایل قیمت در دسترس نیست.');
+                }
+                const textData = await response.text();
+                
+                // ب. تحلیل فایل متنی
+                const priceData = parseTXT(textData);
+                const productInfo = priceData[scannedSku];
+
+                // ج. نمایش اطلاعات
+                document.getElementById('status').innerText = '✅ کالا شناسایی شد.';
+                document.getElementById('mode-display').innerText = 
+                    'حالت قیمت: ' + (customerMode === 'bulk' ? 'عمده فروشی' : 'تک فروشی');
+
+                if (productInfo) {
+                    const priceIndex = customerMode === 'bulk' ? 3 : 2; // قیمت عمده ستون ۳ و تکی ستون ۲ است.
+                    
+                    document.getElementById('product-name').innerText = productInfo[1]; // نام کالا
+                    
+                    const rawPrice = productInfo[priceIndex];
+                    // اضافه کردن جداکننده هزارگان
+                    const formattedPrice = Number(rawPrice).toLocaleString('fa-IR') + ' ریال'; 
+                    document.getElementById('price-display').innerText = formattedPrice;
+
+                } else {
+                    document.getElementById('product-name').innerText = 'کالا در دیتابیس یافت نشد!';
+                    document.getElementById('price-display').innerText = '';
+                }
+
+            } catch (error) {
+                document.getElementById('status').innerText = '❌ خطای اتصال یا فرمت داده.';
+                console.error(error);
+            }
+        }
+
+        // تابع کمکی برای تبدیل فایل TXT به داده‌های قابل استفاده
+        function parseTXT(data) {
+            const lines = data.split('\n');
+            const result = {};
+            lines.forEach(line => {
+                const parts = line.trim().split(',');
+                if (parts.length >= 4) {
+                    // قسمت اول (ایندکس ۰) SKU است.
+                    result[parts[0]] = parts; 
+                }
+            });
+            return result;
+        }
+
+        // شروع سیستم
+        displayPrice();
+    </script>
+</body>
+</html>
